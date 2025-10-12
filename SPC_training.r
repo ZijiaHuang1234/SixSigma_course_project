@@ -3,10 +3,10 @@ library(viridis)
 library(ggpubr)
 library(moments)
 #import data
-water = read_csv("sysen/workshops/onsen.csv")
+water = read_csv("D:/codeWork/5300_repository/workshops/onsen.csv")
 water %>% glimpse()
 
-#themeset
+#15.1.1themeset
 
 theme_set(
 theme_classic(base_size = 14)+
@@ -22,7 +22,7 @@ plot.margin = margin(r = 0)
 )
 )
 
-# Describitive statistics
+# 15.1.2 Describitive statistics
 describe = function(x){
   # Put our vector x in a tibble
   tibble(x) %>%
@@ -50,7 +50,7 @@ describe = function(x){
 tab = water$temp %>% describe()
 # Check it out!
 tab
-# Visualize box_plot
+# 15.1.3 Visualize box_plot
 g1 =  water %>% 
   ggplot(mapping = aes(x=time,y=temp, group =time)) + 
   geom_hline(mapping = aes(yintercept = mean(temp)),color = "lightgrey", size =3) +
@@ -99,14 +99,92 @@ overview_plot( x= water$time,y = water$ph)
 stat_s = water %>%
   group_by(time) %>%
   summarize(
-    xbar = mean(temp),
+    xbar = mean(temp),#within group average
     r = max(temp) - min(temp),
     sd =sd(temp),
     nw = n(),
-    df = new -1
-  ) %>%
-
-  mutate (
+    df = nw -1
+  ) %>% mutate (
     sigma_s = sqrt(sum(df *sd^2)/sum(df)),
-    sigma_s = sqrt(mean(dd^2))
+    sigma_s = sqrt(mean(sd^2)),
+    se = sigma_s /sqrt(nw),
+    upper = mean(xbar)+ 3*se,
+    lower = mean(xbar- 3*se)
   )
+stat_s%>% head(3)
+
+#15.2.3 Total Statistic (Between Groups)
+stat_t = stat_s %>%
+  summarize(
+    xbbar = mean(xbar),
+    rbar = mean(r),
+    sdbar = mean(sd),
+    sigma_s = sqrt(mean(sd^2)),
+    sigma_t = sd(water$temp)
+  )
+#15.2.4 Average andd standrd deviation charts
+labels = stat_s%>%
+   summarize(
+    time = max(time),
+    type = c("xbbar",  "upper", "lower"),
+    name = c("mean", "+3 s", "-3 s"),
+    value = c(mean(xbar), unique(upper), unique(lower)),
+    value = round(value, 2),
+    text = paste(name, value, sep = " = "))
+stat_s %>%
+  ggplot(mapping = aes(x = time, y = xbar)) +
+  geom_hline(mapping = aes(yintercept = mean(xbar)), color = "lightgrey", size = 3) +
+  geom_ribbon(mapping = aes(ymin = lower, ymax = upper), fill = "steelblue", alpha = 0.2) +
+  geom_line(size = 1) +
+  geom_point(size = 5) +
+  # Plot labels
+  geom_label(data = labels, mapping = aes(x = time, y = value, label = text),  hjust = 1)  +
+  labs(x = "Time (Subgroups)", y = "Average",
+       subtitle = "Average and Standard Deviation Chart for temp")
+# Learning Check 2
+ph_s = water %>% group_by(time)%>%
+  summarize(
+    xbar = mean(ph),
+    r = max(ph)-min(ph),
+    sd =sd(ph),
+    nw = n(),
+    df = nw - 1
+  ) %>%
+  mutate(
+    sigma_s = sqrt(mean(sd^2)), 
+    se = sigma_s / sqrt(nw),
+    upper = mean(xbar) + 3*se,
+    lower = mean(xbar) - 3*se
+  )
+# labels it
+labels = ph_s %>%
+  summarize(
+    time = max(time),
+    type = c("xbbar",  "upper", "lower"),
+    name = c("mean", "-3 s", "+3 s"),
+    value = c(mean(xbar), unique(upper), unique(lower)),
+    value = round(value, 2),
+    text = paste(name, value, sep = " = "))
+# visualize the chart
+ph_s %>%
+  ggplot(mapping = aes(x = time, y = xbar)) +
+  geom_hline(mapping = aes(yintercept = mean(xbar)), color = "lightgrey", size = 3) +
+  geom_ribbon(mapping = aes(ymin = lower, ymax = upper), fill = "steelblue", alpha = 0.2) +
+  geom_line(size = 1) +
+  geom_point(size = 5) +
+  # Plot labels
+  geom_label(data = labels, mapping = aes(x = time, y = value, label = text),  hjust = 1)  +
+  labs(x = "Time (Subgroups)", y = "Average pH",
+       subtitle = "Average and Standard Deviation Chart for PH")
+
+#15.3.1 moving range chart
+# choosing first month as sample
+indiv = water %>%
+  filter(id %in% c(1, 21, 41, 61, 81, 101, 121, 141))
+indiv$temp
+indiv$temp%>%diff()%>%abs()
+#15.3.2 Factors d2 and friends
+mrsim = rnorm(n = 10000,mean = 0,sd =1)%>% diff() %>% abs()
+mrsim %>% hist()
+
+#15.3.2 factors d2 and friends
