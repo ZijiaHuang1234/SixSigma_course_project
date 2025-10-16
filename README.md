@@ -45,3 +45,5 @@ Each file contains specific exercises or activities relevant to Six Sigma traini
 ## License
 
 This is educational coursework material.
+
+

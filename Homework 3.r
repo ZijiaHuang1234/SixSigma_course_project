@@ -1,7 +1,7 @@
 #read the csv
 library(tidyverse)
 library(dplyr)
-products = read_csv("D:/codeWork/5300_repository/workshops/products.csv") %>% 
+products = read_csv("c:/codeWork/SixSigma/5300_repository/sysen/workshops/products.csv") %>% 
   group_by(subgroup) %>%
   summarize(grams = c(grams1, grams2, grams3, grams4, grams5)) %>%
   ungroup()
@@ -77,6 +77,7 @@ D4 = const$D4
 # set the upper and lower limit
 upper = Rbar * D4
 lower = max(0,D3*Rbar)
+upper;lower
 # Visualize it
 labels_R <- tibble(
   subgroup = max(r_subgroup$subgroup),
@@ -111,7 +112,9 @@ sd_subgroup <- products %>%
   group_by(subgroup) %>%
   summarise(s = sd(grams, na.rm = TRUE), .groups = "drop")
 
-s_bar <- mean(sd_subgroup$s, na.rm = TRUE)   
+s_bar <- mean(sd_subgroup$s, na.rm = TRUE)
+sd_subgroup%>%head(3)
+s_bar
 
 # 2)reference the function bx
 bn <- function(n, reps = 1e4){
@@ -133,7 +136,9 @@ B3 <- b_const$B3
 B4 <- b_const$B4
 
 upper_s <- B4 * s_bar
-lower_s <- max(0, B3 * s_bar)  
+lower_s <- max(0, B3 * s_bar) 
+
+s_bar;upper_s;lower_s
 
 # Label
 labels_S <- tibble(
@@ -158,3 +163,73 @@ s_plot <- ggplot(sd_subgroup, aes(x = subgroup, y = s)) +
   )
 
 s_plot
+
+#Q5
+LSL <- 2
+
+# get mu and sigma_s and sigma_t
+mu <- mean(products$grams, na.rm = TRUE)
+sigma_t <- sd(products$grams, na.rm = TRUE)
+sigma_s <- first(stat_s$sigma_s)
+
+# import functiom
+cpk <- function(mu, sigma_s, LSL = NULL, USL = NULL){
+  if(!is.null(LSL)) a <- abs(mu - LSL) / (3 * sigma_s)
+  if(!is.null(USL)) b <- abs(USL - mu) / (3 * sigma_s)
+  if(!is.null(LSL) & !is.null(USL)) return(min(a,b))
+  if(is.null(LSL)) return(b) else return(a)
+}
+
+ppk <- function(mu, sigma_t, LSL = NULL, USL = NULL){
+  if(!is.null(LSL)) a <- abs(mu - LSL) / (3 * sigma_t)
+  if(!is.null(USL)) b <- abs(USL - mu) / (3 * sigma_t)
+  if(!is.null(LSL) & !is.null(USL)) return(min(a,b))
+  if(is.null(LSL)) return(b) else return(a)
+}
+#Calculation
+Cpk <- cpk(mu = mu, sigma_s = sigma_s, LSL = LSL)
+Ppk <- ppk(mu = mu, sigma_t = sigma_t, LSL = LSL)
+
+Cpk; Ppk
+
+# Q6
+LSL <- 2
+
+# Bootstrapping sample
+myboot <- tibble(rep = 1:1000) %>%
+  group_by(rep) %>%
+  reframe(products) %>%                 
+  sample_n(size = n(), replace = TRUE)
+
+# calculate statistic in each rep subgroup
+mybootstat <- myboot %>%
+  group_by(rep, subgroup) %>%
+  summarise(
+    xbar    = mean(grams, na.rm = TRUE),
+    sigma_w = sd(grams, na.rm = TRUE),
+    n_w     = n(),
+    .groups = "drop_last"
+  ) %>%
+  # CMerge together then calculate Cpk
+  mutate(df_w = n_w - 1) %>%
+  group_by(rep) %>%
+  summarise(
+    limit_lower = LSL,
+    limit_upper = NA_real_,
+    xbbar       = mean(xbar, na.rm = TRUE),
+    # short_term sigma
+    sigma_s     = sqrt( sum(df_w * sigma_w^2, na.rm = TRUE) / sum(df_w, na.rm = TRUE) ),
+    k_groups    = n(),                     # subgroup's number
+    n_total     = sum(n_w, na.rm = TRUE),  # total number of subgroup 
+    #  Cpk one side
+    estimate    = cpk(mu = xbbar, sigma_s = sigma_s, LSL = limit_lower),
+    .groups = "drop"
+  )
+
+# --- Q6(a) double_sideed 95% CI  & onside 95% CI LSL---
+ci95   <- quantile(mybootstat$estimate, c(0.025, 0.975), na.rm = TRUE)
+lb95   <- quantile(mybootstat$estimate, 0.05, na.rm = TRUE)
+
+ci95
+lb95
+
